@@ -70,13 +70,14 @@ jobs:
 
       - name: Commit generated images
         run: |
-          if git diff --quiet --exit-code; then
+          git add .
+
+          if git diff --cached --quiet --exit-code; then
             echo "No generated image changes to commit."
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
           git commit -m "Generate padded Steam item images"
           git push
