@@ -1,0 +1,82 @@
+name: Pad Steam item images
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/items/**/source-icon.png"
+      - "**/items/**/source-large.png"
+      - ".github/workflows/pad-item-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pad-images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install Pillow
+        run: python -m pip install --quiet Pillow
+
+      - name: Generate Steam image sizes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          ROOT = Path(".")
+          TARGETS = {
+              "source-icon.png": ("icon.png", 200),
+              "source-large.png": ("large.png", 2048),
+          }
+
+          generated = 0
+
+          for source_name, (output_name, target_size) in TARGETS.items():
+              for source_path in ROOT.glob(f"*/items/*/{source_name}"):
+                  output_path = source_path.with_name(output_name)
+
+                  with Image.open(source_path) as image:
+                      image = image.convert("RGBA")
+
+                  if image.width > target_size or image.height > target_size:
+                      raise ValueError(
+                          f"{source_path} is {image.width}x{image.height}, "
+                          f"which is larger than target {target_size}x{target_size}"
+                      )
+
+                  canvas = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
+                  x = (target_size - image.width) // 2
+                  y = (target_size - image.height) // 2
+                  canvas.paste(image, (x, y), image)
+                  canvas.save(output_path, optimize=True)
+                  generated += 1
+                  print(f"Generated {output_path} from {source_path}")
+
+          if generated == 0:
+              print("No source images found.")
+          PY
+
+      - name: Commit generated images
+        run: |
+          if git diff --quiet --exit-code; then
+            echo "No generated image changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Generate padded Steam item images"
+          git push
