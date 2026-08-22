@@ -1,12 +1,11 @@
-name: Pad Steam item images
+name: Build Steam item images
 
 on:
   push:
     branches:
       - main
     paths:
-      - "**/items/**/source-icon.png"
-      - "**/items/**/source-large.png"
+      - "**/items-source/*.icon.png"
       - ".github/workflows/pad-item-images.yml"
   workflow_dispatch:
 
@@ -14,7 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  pad-images:
+  build-images:
     runs-on: ubuntu-latest
 
     steps:
@@ -36,30 +35,41 @@ jobs:
           from PIL import Image
 
           ROOT = Path(".")
-          TARGETS = {
-              "source-icon.png": ("icon.png", 200),
-              "source-large.png": ("large.png", 2048),
-          }
+          TARGETS = (
+              ("icon.png", 200),
+              ("large.png", 2048),
+          )
 
           generated = 0
 
-          for source_name, (output_name, target_size) in TARGETS.items():
-              for source_path in ROOT.glob(f"*/items/*/{source_name}"):
-                  output_path = source_path.with_name(output_name)
+          for source_path in sorted(ROOT.glob("*/items-source/*.icon.png")):
+              item_id = source_path.name[: -len(".icon.png")]
+              item_dir = source_path.parent.parent / "items" / item_id
+              item_dir.mkdir(parents=True, exist_ok=True)
 
-                  with Image.open(source_path) as image:
-                      image = image.convert("RGBA")
+              with Image.open(source_path) as opened:
+                  image = opened.convert("RGBA")
 
+              for output_name, target_size in TARGETS:
                   if image.width > target_size or image.height > target_size:
-                      raise ValueError(
-                          f"{source_path} is {image.width}x{image.height}, "
-                          f"which is larger than target {target_size}x{target_size}"
-                      )
+                      ratio = min(target_size / image.width, target_size / image.height)
+                      width = max(1, min(target_size, round(image.width * ratio)))
+                      height = max(1, min(target_size, round(image.height * ratio)))
+                      resized = image.resize((width, height), Image.LANCZOS)
+                  else:
+                      scale = min(target_size // image.width, target_size // image.height)
+                      width = image.width * scale
+                      height = image.height * scale
+                      resized = image.resize((width, height), Image.NEAREST)
 
                   canvas = Image.new("RGBA", (target_size, target_size), (0, 0, 0, 0))
-                  x = (target_size - image.width) // 2
-                  y = (target_size - image.height) // 2
-                  canvas.paste(image, (x, y), image)
+                  canvas.paste(
+                      resized,
+                      ((target_size - width) // 2, (target_size - height) // 2),
+                      resized,
+                  )
+
+                  output_path = item_dir / output_name
                   canvas.save(output_path, optimize=True)
                   generated += 1
                   print(f"Generated {output_path} from {source_path}")
@@ -79,5 +89,5 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Generate padded Steam item images"
+          git commit -m "Generate Steam item images"
           git push

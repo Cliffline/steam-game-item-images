@@ -1,12 +1,16 @@
 # Steam Game Item Images
 
-This repository hosts publicly accessible item images for Steam games.
+Public image host for Steam Inventory Service items in games published by **Cliffline Studios**.
+
+Steam requires item icons to be served from a stable public URL. This repository stores those images and serves them through GitHub Pages, so item definitions can reference them directly.
 
 ## URL pattern
 
+Base URL: <https://cliffline.github.io/steam-game-item-images>
+
 ```text
-https://YOUR_USERNAME.github.io/steam-game-item-images/{game}/items/{item_id}/icon.png
-https://YOUR_USERNAME.github.io/steam-game-item-images/{game}/items/{item_id}/large.png
+{base}/{game}/items/{item_id}/icon.png
+{base}/{game}/items/{item_id}/large.png
 ```
 
 ## Directory rules
@@ -20,22 +24,25 @@ Game folders use lowercase kebab case. Item image file names are fixed as `icon.
 
 ## Source images
 
-Upload source images next to the generated files:
+Upload one source image per item:
 
 ```text
-{game}/items/{item_id}/source-icon.png
-{game}/items/{item_id}/source-large.png
+{game}/items-source/{item_id}.icon.png
 ```
 
-GitHub Actions pads them with transparent margins and commits:
+GitHub Actions upscales each source and commits:
 
 ```text
-source-icon.png  -> icon.png  200x200
-source-large.png -> large.png 2048x2048
+{item_id}.icon.png -> {game}/items/{item_id}/icon.png   200x200
+{item_id}.icon.png -> {game}/items/{item_id}/large.png  2048x2048
 ```
 
-The image content is centered and not scaled.
+The source is scaled with its aspect ratio kept, so neither side exceeds the target size, then centered on a transparent canvas. Sources smaller than the target are enlarged by an integer factor with nearest-neighbor sampling to keep pixel edges sharp; oversized sources are downscaled with Lanczos.
 
-## Current games
+## Games
 
 - Bundoro
+
+## Usage
+
+The images belong to Cliffline Studios and are published here only so Steam and the games can load them. They are not offered for reuse in other projects.
